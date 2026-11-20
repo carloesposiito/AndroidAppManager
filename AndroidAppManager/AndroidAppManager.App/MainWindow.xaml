@@ -1,0 +1,288 @@
+﻿<Window x:Class="AndroidAppManager.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Android App Manager" Width="1180" Height="780" MinWidth="980" MinHeight="640"
+        Background="{StaticResource Night}" FontFamily="Segoe UI" FontSize="13"
+        TextElement.Foreground="{StaticResource Text}"
+        AllowDrop="True" DragEnter="OnDragEnter" DragLeave="OnDragLeave" DragOver="OnDragOver" Drop="OnDropFiles"
+        Closing="OnWindowClosing">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="Caption" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style x:Key="Sep" TargetType="Rectangle">
+            <Setter Property="Height" Value="1"/>
+            <Setter Property="Fill" Value="{StaticResource Line}"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+        </Style>
+        <Style x:Key="LegendItem" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+            <Setter Property="Margin" Value="16,0,0,0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="304"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Rail: everything about the connection lives here, always visible. -->
+        <Border Background="{StaticResource Rail}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="24,26,24,20" LastChildFill="False">
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="Android App Manager" FontFamily="{StaticResource Display}" FontSize="26" FontWeight="SemiBold"
+                               TextWrapping="Wrap" LineHeight="30"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,30,0,0">
+                        <Ellipse x:Name="StatusDot" Width="10" Height="10" Fill="{StaticResource Slate}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StatusText" Text="Non connesso" FontSize="15" FontWeight="SemiBold" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    <TextBlock x:Name="DeviceDetails" Foreground="{StaticResource Muted}" TextWrapping="Wrap"
+                               Margin="20,4,0,0" Text="Inserisci l'indirizzo della TV."/>
+
+                    <Rectangle Style="{StaticResource Sep}" Margin="0,22,0,0"/>
+
+                    <Grid Margin="0,20,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="84"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Indirizzo IP" Style="{StaticResource Caption}"/>
+                            <TextBox x:Name="HostBox" Text="192.168.1.3" Tag="192.168.1.x"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Porta" Style="{StaticResource Caption}"/>
+                            <TextBox x:Name="PortBox" Text="5555"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button x:Name="ConnectBtn" Content="Connetti" Style="{StaticResource PrimaryBtn}" Margin="0,16,0,0" Click="OnConnect"/>
+                    <Button x:Name="DisconnectBtn" Content="Disconnetti" Margin="0,8,0,0"
+                            IsEnabled="False" Click="OnDisconnect"/>
+
+                    <Rectangle Style="{StaticResource Sep}" Margin="0,20,0,0"/>
+
+                    <ToggleButton x:Name="PairToggle" Style="{StaticResource GhostBtn}" Margin="-16,12,0,0"
+                                  Content="Abbinamento (Android 11+)"/>
+                    <StackPanel Visibility="{Binding IsChecked, ElementName=PairToggle, Converter={StaticResource BoolToVis}}"
+                                Margin="0,8,0,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="12"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Porta di abbinamento" Style="{StaticResource Caption}"/>
+                                <TextBox x:Name="PairPortBox"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Codice" Style="{StaticResource Caption}"/>
+                                <TextBox x:Name="PairCodeBox" MaxLength="8"/>
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="PairBtn" Content="Abbina" Margin="0,10,0,0" Click="OnPair"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel DockPanel.Dock="Bottom">
+                    <Rectangle Style="{StaticResource Sep}" Margin="0,0,0,16"/>
+                    <TextBlock Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap"
+                               Text="Dopo un ripristino di fabbrica attiva le Opzioni sviluppatore sulla TV (7 tocchi su Build) e il debug di rete."/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Workspace -->
+        <Grid Grid.Column="1" Margin="32,24,32,18">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border HorizontalAlignment="Left" Background="{StaticResource Raised}" CornerRadius="10" Padding="3">
+                <StackPanel Orientation="Horizontal">
+                    <RadioButton x:Name="AppsTab" Style="{StaticResource Seg}" Content="App sulla TV" GroupName="View"
+                                 IsChecked="True" Checked="OnViewChanged"/>
+                    <RadioButton x:Name="InstallTab" Style="{StaticResource Seg}" Content="Installa APK" GroupName="View"
+                                 Checked="OnViewChanged"/>
+                </StackPanel>
+            </Border>
+
+            <Rectangle Grid.Row="1" Style="{StaticResource Sep}" Margin="0,18,0,0"/>
+
+            <!-- View 1: apps -->
+            <Grid x:Name="AppsPanel" Grid.Row="2" Margin="0,18,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <DockPanel>
+                    <Button x:Name="ScanBtn" DockPanel.Dock="Right" Content="Scansiona" IsEnabled="False" Click="OnScan"/>
+                    <CheckBox x:Name="HideProtectedBox" DockPanel.Dock="Right" Style="{StaticResource Switch}"
+                              Content="Nascondi protetti" Margin="0,0,20,0" Checked="OnFilterChanged" Unchecked="OnFilterChanged"/>
+                    <TextBox x:Name="FilterBox" Tag="Cerca pacchetto" HorizontalAlignment="Left"
+                             Width="320" TextChanged="OnFilterChanged"/>
+                </DockPanel>
+
+                <Border Grid.Row="1" Margin="0,16,0,10">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel Style="{StaticResource LegendItem}" ToolTip="Mai toccati dal tool">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Mint}" Margin="0,0,6,0"/>
+                            <TextBlock Text="Protetto" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource LegendItem}" ToolTip="Bloatware già rimosso senza problemi su altri dispositivi">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Rose}" Margin="0,0,6,0"/>
+                            <TextBlock Text="Rimovibile" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource LegendItem}" ToolTip="Il nome ricorda streaming, launcher o strumenti di fabbrica">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Amber}" Margin="0,0,6,0"/>
+                            <TextBlock Text="Sospetto" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Style="{StaticResource LegendItem}" ToolTip="Da valutare a mano">
+                            <Ellipse Width="8" Height="8" Fill="{StaticResource Slate}" Margin="0,0,6,0"/>
+                            <TextBlock Text="Da valutare" Foreground="{StaticResource Muted}" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <Border HorizontalAlignment="Left" Background="{StaticResource Raised}" CornerRadius="10" Padding="3">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="SystemRadio" Style="{StaticResource Seg}" Content="Sistema" GroupName="Origin"
+                                         IsChecked="True" Checked="OnOriginChanged"/>
+                            <RadioButton x:Name="ThirdPartyRadio" Style="{StaticResource Seg}" Content="Terze parti" GroupName="Origin"
+                                         Checked="OnOriginChanged"/>
+                        </StackPanel>
+                    </Border>
+                </DockPanel>
+                </Border>
+
+                <Border Grid.Row="2" Background="{StaticResource Rail}" CornerRadius="12" Padding="10,12,10,6">
+                <Grid>
+                    <DataGrid x:Name="PackageGrid" Style="{StaticResource PackageGridStyle}" SelectionChanged="OnSelectionChanged" Sorting="OnSorting">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Pacchetto" Width="*" Binding="{Binding Name}" SortMemberPath="Name" Foreground="{StaticResource Text}">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontFamily" Value="{StaticResource Mono}"/>
+                                        <Setter Property="FontSize" Value="12.5"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Rischio" Width="150" SortMemberPath="Risk">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource Slate}" Margin="0,0,8,0"/>
+                                            <TextBlock Text="{Binding Rischio}" Foreground="{StaticResource Text}"/>
+                                        </StackPanel>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Risk}" Value="Protected">
+                                                <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Mint}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Risk}" Value="Known">
+                                                <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Rose}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Risk}" Value="Suspect">
+                                                <Setter TargetName="Dot" Property="Fill" Value="{StaticResource Amber}"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Categoria" Width="200" Binding="{Binding Categoria}" SortMemberPath="Category">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Header="Stato" Width="100" Binding="{Binding Stato}" SortMemberPath="State">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock x:Name="EmptyHint" Foreground="{StaticResource Muted}" FontSize="14" TextAlignment="Center"
+                               TextWrapping="Wrap" MaxWidth="360" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Margin="0,30,0,0" IsHitTestVisible="False"/>
+                </Grid>
+                </Border>
+
+                <Border Grid.Row="3" Margin="0,14,0,0">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                            <Border Background="{StaticResource Raised}" CornerRadius="10" Padding="3" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton x:Name="UninstallRadio" Style="{StaticResource Seg}" Content="Rimuovi" GroupName="Mode"
+                                                 IsChecked="True"
+                                                 ToolTip="Disinstalla per l'utente 0. Le app di sistema si ripristinano dal backup."/>
+                                    <RadioButton x:Name="DisableRadio" Style="{StaticResource Seg}" Content="Disabilita" GroupName="Mode"
+                                                 ToolTip="Nasconde l'app senza rimuoverla. Si riabilita dal backup."/>
+                                </StackPanel>
+                            </Border>
+                            <Button x:Name="RestoreBtn" Content="Ripristina backup..." Margin="10,0,0,0" IsEnabled="False" Click="OnRestore"/>
+                            <Button x:Name="RemoveBtn" Content="Applica..." Style="{StaticResource PrimaryBtn}" Margin="10,0,0,0"
+                                    IsEnabled="False" Click="OnRemove"/>
+                        </StackPanel>
+                        <Button x:Name="SelectKnownBtn" DockPanel.Dock="Left" Content="Seleziona rimovibili" Style="{StaticResource GhostBtn}" Margin="-16,0,0,0"
+                                IsEnabled="False" Click="OnSelectKnown"/>
+                        <TextBlock x:Name="SelectionText" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+            <!-- View 2: sideload -->
+            <Grid x:Name="InstallPanel" Grid.Row="2" Margin="0,18,0,0" Visibility="Collapsed">
+                <Rectangle x:Name="DropOutline" RadiusX="16" RadiusY="16" Stroke="{StaticResource Line}" StrokeThickness="2"
+                           StrokeDashArray="5 4" Fill="{StaticResource Rail}"/>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440">
+                    <TextBlock Text="&#xE896;" FontFamily="{StaticResource Icons}" FontSize="40" Foreground="{StaticResource Accent}"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="Trascina qui gli APK" FontFamily="{StaticResource Display}" FontSize="24" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                    <Button x:Name="InstallBtn" Content="Scegli file..." Style="{StaticResource PrimaryBtn}" HorizontalAlignment="Center"
+                            Margin="0,20,0,0" Padding="22,9" IsEnabled="False" Click="OnInstallApk"/>
+                    <TextBlock Foreground="{StaticResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,22,0,0"
+                               Text="Prima di installare controllo firma, versione, CPU e spazio libero sulla TV, e ti mostro il risultato."/>
+                </StackPanel>
+            </Grid>
+
+            <!-- Log -->
+            <Rectangle Grid.Row="3" Style="{StaticResource Sep}" Margin="0,16,0,0"/>
+            <StackPanel Grid.Row="4" Margin="0,12,0,0">
+                <DockPanel>
+                    <Button x:Name="ClearLogBtn" DockPanel.Dock="Right" Content="Svuota" Style="{StaticResource GhostBtn}" Padding="10,4" FontSize="12" Margin="0,0,-10,0"
+                            Click="OnClearLog"/>
+                    <StackPanel x:Name="OpPanel" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="12,0,12,0" Visibility="Collapsed">
+                        <TextBlock x:Name="OpText" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,0,12,0"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="380"/>
+                        <ProgressBar x:Name="OpBar" Width="160" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <ToggleButton x:Name="LogToggle" Style="{StaticResource GhostBtn}" Padding="10,4" FontSize="12"
+                                  Content="Registro" IsChecked="True" HorizontalAlignment="Left" Margin="-10,0,0,0"/>
+                </DockPanel>
+                <TextBox x:Name="LogBox" Style="{StaticResource LogBoxStyle}" Height="130" IsReadOnly="True" Margin="0,6,0,0"
+                         VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"
+                         Visibility="{Binding IsChecked, ElementName=LogToggle, Converter={StaticResource BoolToVis}}"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
