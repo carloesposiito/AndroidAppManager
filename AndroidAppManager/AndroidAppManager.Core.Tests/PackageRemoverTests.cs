@@ -180,6 +180,44 @@ public class PackageRemoverTests : IDisposable
     }
 
     [Fact]
+    public async Task Plan_with_allowProtected_marks_protected_items_removable()
+    {
+        var plan = await Remover(Device()).PlanAsync(FakeAdb.Ep(), RemovalMode.Disable,
+            new[] { "com.android.systemui", "com.apkpure.aegon" }, allowProtected: true);
+        var sys = plan.Items.Single(i => i.Name == "com.android.systemui");
+        Assert.Equal(PlanAction.Remove, sys.Action);
+        Assert.True(sys.IsProtected);
+        Assert.False(plan.Items.Single(i => i.Name == "com.apkpure.aegon").IsProtected);
+    }
+
+    [Fact]
+    public async Task Execute_disables_protected_only_when_allowed()
+    {
+        var adb = Device();
+        var r = Remover(adb);
+        var plan = await r.PlanAsync(FakeAdb.Ep(), RemovalMode.Disable, new[] { "com.android.systemui" }, allowProtected: true);
+
+        var blocked = await r.ExecuteAsync(FakeAdb.Ep(), plan);
+        Assert.Empty(blocked.Results);
+        Assert.DoesNotContain(adb.Commands, c => c.StartsWith("pm disable"));
+
+        var run = await r.ExecuteAsync(FakeAdb.Ep(), plan, allowProtected: true);
+        Assert.True(Assert.Single(run.Results).Success);
+        Assert.Contains("pm disable-user --user 0 com.android.systemui", adb.Commands);
+    }
+
+    [Fact]
+    public async Task Enable_runs_pm_enable_and_rejects_invalid_names()
+    {
+        var adb = Device();
+        var res = await Remover(adb).EnableAsync(FakeAdb.Ep(), ["com.android.systemui", "x; reboot"]);
+        Assert.True(res[0].Success);
+        Assert.False(res[1].Success);
+        Assert.Contains("pm enable --user 0 com.android.systemui", adb.Commands);
+        Assert.DoesNotContain(adb.Commands, c => c.Contains("reboot"));
+    }
+
+    [Fact]
     public async Task Restore_reinstalls_uninstalled_and_enables_disabled()
     {
         var adb = Device();

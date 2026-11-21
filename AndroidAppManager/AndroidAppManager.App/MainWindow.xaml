@@ -163,6 +163,9 @@
                                          IsChecked="True" Checked="OnOriginChanged"/>
                             <RadioButton x:Name="ThirdPartyRadio" Style="{StaticResource Seg}" Content="Terze parti" GroupName="Origin"
                                          Checked="OnOriginChanged"/>
+                            <RadioButton x:Name="DisabledRadio" Style="{StaticResource Seg}" Content="Disabilitate" GroupName="Origin"
+                                         ToolTip="App disabilitate (di sistema e terze parti): da qui si riabilitano."
+                                         Checked="OnOriginChanged"/>
                         </StackPanel>
                     </Border>
                 </DockPanel>
@@ -241,7 +244,7 @@
                 <Border Grid.Row="3" Margin="0,14,0,0">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                            <Border Background="{StaticResource Raised}" CornerRadius="10" Padding="3" VerticalAlignment="Center">
+                            <Border x:Name="ModePanel" Background="{StaticResource Raised}" CornerRadius="10" Padding="3" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal">
                                     <RadioButton x:Name="UninstallRadio" Style="{StaticResource Seg}" Content="Rimuovi" GroupName="Mode"
                                                  IsChecked="True"
@@ -250,11 +253,14 @@
                                                  ToolTip="Nasconde l'app senza rimuoverla. Si riabilita dal backup."/>
                                 </StackPanel>
                             </Border>
-                            <Button x:Name="SetHomeBtn" Content="Imposta come home" Margin="10,0,0,0" IsEnabled="False" Click="OnSetHome"
+                            <Button x:Name="SetHomeBtn" Content="Imposta home" Margin="10,0,0,0" IsEnabled="False" Click="OnSetHome"
                                     ToolTip="Seleziona un'app con schermata home (colonna Home) per usarla come launcher."/>
                             <Button x:Name="RestoreBtn" Content="Ripristina backup..." Margin="10,0,0,0" IsEnabled="False" Click="OnRestore"/>
                             <Button x:Name="RemoveBtn" Content="Applica..." Style="{StaticResource PrimaryBtn}" Margin="10,0,0,0"
                                     IsEnabled="False" Click="OnRemove"/>
+                            <Button x:Name="EnableBtn" Content="Riabilita..." Style="{StaticResource PrimaryBtn}" Margin="10,0,0,0"
+                                    IsEnabled="False" Visibility="Collapsed" Click="OnEnable"
+                                    ToolTip="Riabilita le app selezionate."/>
                         </StackPanel>
                         <Button x:Name="SelectKnownBtn" DockPanel.Dock="Left" Content="Seleziona rimovibili" Style="{StaticResource GhostBtn}" Margin="-16,0,0,0"
                                 IsEnabled="False" Click="OnSelectKnown"/>

@@ -25,7 +25,7 @@ public partial class MainWindow : Window
     private PackageSortKey? _sortKey;
     private bool _sortDesc;
     private bool _marquee;
-    private IReadOnlyList<PackageRow> _systemRows = [], _thirdPartyRows = [];
+    private IReadOnlyList<PackageRow> _systemRows = [], _thirdPartyRows = [], _disabledRows = [];
     private HashSet<string> _homePackages = [];
     private string? _currentHome;
 
@@ -271,17 +271,36 @@ public partial class MainWindow : Window
         if (_sortKey is { } key) view = PackageSorter.Sort(view, key, _sortDesc);
         _systemRows = view.Where(p => p.Origin == PackageOrigin.System).Select(ToRow).ToList();
         _thirdPartyRows = view.Where(p => p.Origin == PackageOrigin.ThirdParty).Select(ToRow).ToList();
+        _disabledRows = view.Where(p => p.IsDisabled).Select(ToRow).ToList();
         SystemRadio.Content = $"Sistema  {_systemRows.Count}";
         ThirdPartyRadio.Content = $"Terze parti  {_thirdPartyRows.Count}";
+        DisabledRadio.Content = $"Disabilitate  {_disabledRows.Count}";
         ShowCurrentRows();
     }
+
+    private bool DisabledView => DisabledRadio?.IsChecked == true;
 
     private void ShowCurrentRows()
     {
         if (PackageGrid is null || SystemRadio is null) return;
-        PackageGrid.ItemsSource = SystemRadio.IsChecked == true ? _systemRows : _thirdPartyRows;
+        PackageGrid.ItemsSource = DisabledView ? _disabledRows : SystemRadio.IsChecked == true ? _systemRows : _thirdPartyRows;
         UpdateSortArrows();
         RefreshEmptyHint();
+        UpdateActionBar();
+    }
+
+    /// <summary>The disabled list swaps the remove controls for the re-enable button.</summary>
+    private void UpdateActionBar()
+    {
+        if (ModePanel is null) return;
+        var disabled = DisabledView;
+        var apps = disabled ? Visibility.Collapsed : Visibility.Visible;
+        ModePanel.Visibility = apps;
+        SetHomeBtn.Visibility = apps;
+        RemoveBtn.Visibility = apps;
+        EnableBtn.Visibility = disabled ? Visibility.Visible : Visibility.Collapsed;
+        EnableBtn.IsEnabled = !_busy && _connected is not null;
+        SelectKnownBtn.Visibility = apps;
     }
 
     private void RefreshEmptyHint()
@@ -289,7 +308,7 @@ public partial class MainWindow : Window
         var shown = PackageGrid.Items.Count;
         EmptyHint.Text = _connected is null ? "Connettiti alla TV per vedere le app installate."
             : _packages.Count == 0 ? "Premi Scansiona per leggere le app installate."
-            : shown == 0 ? "Nessun pacchetto corrisponde al filtro."
+            : shown == 0 ? (DisabledView ? "Nessuna app disabilitata." : "Nessun pacchetto corrisponde al filtro.")
             : "";
         EmptyHint.Visibility = EmptyHint.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -313,7 +332,24 @@ public partial class MainWindow : Window
         {
             var remover = NewRemover();
             ShowOp("Controllo dei pacchetti selezionati", null);
-            var plan = await remover.PlanAsync(_connected, SelectedMode, names);
+            // Protected apps are planned too; they only run after the warnings below.
+            var plan = await remover.PlanAsync(_connected, SelectedMode, names, allowProtected: true);
+            var guarded = ProtectedNames(plan);
+            if (guarded.Count > 0 && plan.Mode == RemovalMode.Uninstall)
+            {
+                var list = string.Join("\n", guarded.Take(10)) + (guarded.Count > 10 ? $"\n... e altre {guarded.Count - 10}" : "");
+                if (ConfirmDialog.Ask(this, "App protette selezionate",
+                        $"Queste app sono protette:\n\n{list}\n\nRimuoverle può rendere la TV instabile o inutilizzabile. " +
+                        "Disabilitarle è più sicuro: restano sulla TV e si riabilitano dal tab Disabilitate.",
+                        "Disabilita invece", "Rimuovi comunque...", DialogTone.Warning))
+                {
+                    plan = await remover.PlanAsync(_connected, RemovalMode.Disable, names, allowProtected: true);
+                }
+                else if (!ConfirmDialog.Ask(this, "Rimuovere le app protette?",
+                             $"Confermi la rimozione di {guarded.Count} app protette?\n\n{list}\n\nL'APK di sistema resta e si ripristina dal backup.",
+                             "Rimuovi protette", "Annulla", DialogTone.Warning))
+                    return;
+            }
             var toRemove = plan.ToRemove.ToList();
             if (toRemove.Count == 0)
             {
@@ -324,16 +360,22 @@ public partial class MainWindow : Window
             var disable = plan.Mode == RemovalMode.Disable;
             var user = plan.Items.Where(i => i.Action == PlanAction.Remove && i.Origin == PackageOrigin.ThirdParty).ToList();
             var warnUser = !disable && user.Count > 0;
+            var guardedLeft = ProtectedNames(plan);
             var body = (disable ? "Le app restano sulla TV ma disabilitate:\n" : "Rimozione per l'utente 0 (l'APK delle app di sistema resta):\n") +
                        "\n" + string.Join("\n", toRemove.Take(25)) +
                        (toRemove.Count > 25 ? $"\n... e altre {toRemove.Count - 25}" : "") +
+                       (disable && guardedLeft.Count > 0
+                           ? $"\n\nAttenzione: {guardedLeft.Count} sono app protette ({string.Join(", ", guardedLeft.Take(5))}" +
+                             $"{(guardedLeft.Count > 5 ? ", ..." : "")}). Se la TV si comporta male, riabilitale dal tab Disabilitate."
+                           : "") +
                        (warnUser
                            ? $"\n\nAttenzione: {user.Count} sono app di terze parti ({string.Join(", ", user.Take(5).Select(i => i.Name))}" +
                              $"{(user.Count > 5 ? ", ..." : "")}). Il backup non può reinstallarle: servirà l'APK. Le app di sistema si ripristinano."
                            : "") +
                        $"\n\nSaltati:\n{SkippedSummary(plan)}\n\nSalvo un backup prima di procedere.";
             if (!ConfirmDialog.Ask(this, disable ? $"Disabilitare {toRemove.Count} app?" : $"Rimuovere {toRemove.Count} app?",
-                    body, disable ? "Disabilita" : "Rimuovi", "Annulla", warnUser ? DialogTone.Warning : DialogTone.Info))
+                    body, disable ? "Disabilita" : "Rimuovi", "Annulla",
+                    warnUser || guardedLeft.Count > 0 ? DialogTone.Warning : DialogTone.Info))
                 return;
 
             var total = toRemove.Count;
@@ -346,8 +388,40 @@ public partial class MainWindow : Window
                 ShowOp($"{verb} {done}/{total}  {r.Name}", (double)done / total);
                 Log($"{(r.Success ? "OK     " : "ERRORE ")} {r.Name} {(r.Success ? "" : r.Output)}");
             });
-            var run = await remover.ExecuteAsync(_connected, plan, progress);
+            var run = await remover.ExecuteAsync(_connected, plan, progress, allowProtected: true);
             Log($"Fatto: {run.Results.Count(r => r.Success)}/{run.Results.Count}. Backup: {run.BackupPath}");
+            await RescanAsync(_connected);
+        }
+        catch (Exception ex) { Log($"Operazione fallita: {ex.Message}"); }
+        finally { SetBusy(false); }
+    }
+
+    private static List<string> ProtectedNames(RemovalPlan plan) =>
+        plan.Items.Where(i => i.Action == PlanAction.Remove && i.IsProtected).Select(i => i.Name).ToList();
+
+    private async void OnEnable(object sender, RoutedEventArgs e)
+    {
+        if (_connected is null) return;
+        var names = PackageGrid.SelectedItems.OfType<PackageRow>().Select(r => r.Name).ToList();
+        if (names.Count == 0) { Log("Nessun pacchetto selezionato."); return; }
+        if (!ConfirmDialog.Ask(this, $"Riabilitare {names.Count} app?",
+                string.Join("\n", names.Take(25)) + (names.Count > 25 ? $"\n... e altre {names.Count - 25}" : ""),
+                "Riabilita", "Annulla")) return;
+
+        SetBusy(true);
+        try
+        {
+            var total = names.Count;
+            var done = 0;
+            ShowOp($"Riabilitazione 0/{total}", 0);
+            var progress = new Progress<RemovalResult>(r =>
+            {
+                done++;
+                ShowOp($"Riabilitazione {done}/{total}  {r.Name}", (double)done / total);
+                Log($"{(r.Success ? "OK     " : "ERRORE ")} {r.Name} {(r.Success ? "" : r.Output)}");
+            });
+            var results = await NewRemover().EnableAsync(_connected, names, progress);
+            Log($"Riabilitate {results.Count(r => r.Success)}/{results.Count}.");
             await RescanAsync(_connected);
         }
         catch (Exception ex) { Log($"Operazione fallita: {ex.Message}"); }
@@ -577,6 +651,6 @@ public partial class MainWindow : Window
         RemoveBtn.IsEnabled = ready;
         RestoreBtn.IsEnabled = ready;
         InstallBtn.IsEnabled = ready;
-        if (PackageGrid is not null) { UpdateSetHomeButton(); RefreshEmptyHint(); }
+        if (PackageGrid is not null) { UpdateSetHomeButton(); UpdateActionBar(); RefreshEmptyHint(); }
     }
 }
