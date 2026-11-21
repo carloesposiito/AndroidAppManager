@@ -210,6 +210,19 @@
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
+                            <DataGridTextColumn Header="Home" Width="100" Binding="{Binding Home}" CanUserSort="False">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Home}" Value="Attiva">
+                                                <Setter Property="Foreground" Value="{StaticResource Text}"/>
+                                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Stato" Width="100" Binding="{Binding Stato}" SortMemberPath="State">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -237,6 +250,8 @@
                                                  ToolTip="Nasconde l'app senza rimuoverla. Si riabilita dal backup."/>
                                 </StackPanel>
                             </Border>
+                            <Button x:Name="SetHomeBtn" Content="Imposta come home" Margin="10,0,0,0" IsEnabled="False" Click="OnSetHome"
+                                    ToolTip="Seleziona un'app con schermata home (colonna Home) per usarla come launcher."/>
                             <Button x:Name="RestoreBtn" Content="Ripristina backup..." Margin="10,0,0,0" IsEnabled="False" Click="OnRestore"/>
                             <Button x:Name="RemoveBtn" Content="Applica..." Style="{StaticResource PrimaryBtn}" Margin="10,0,0,0"
                                     IsEnabled="False" Click="OnRemove"/>

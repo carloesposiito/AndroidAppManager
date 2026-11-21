@@ -26,6 +26,8 @@ public partial class MainWindow : Window
     private bool _sortDesc;
     private bool _marquee;
     private IReadOnlyList<PackageRow> _systemRows = [], _thirdPartyRows = [];
+    private HashSet<string> _homePackages = [];
+    private string? _currentHome;
 
     public MainWindow()
     {
@@ -116,6 +118,8 @@ public partial class MainWindow : Window
             Log($"Disconnesso da {_connected.Serial}");
             _connected = null;
             _packages = [];
+            _homePackages = [];
+            _currentHome = null;
             ApplyFilter();
             SetStatus("Non connesso", Tone.Idle, "Inserisci l'indirizzo della TV.");
         }
@@ -164,8 +168,54 @@ public partial class MainWindow : Window
         Log("Scansione in corso...");
         _packages = await new PackageScanner(_adb).ScanAsync(ep);
         Log($"Scansione: {_packages.Count} pacchetti.");
+        await LoadHomesAsync(ep);
         ApplyFilter();
     }
+
+    /// <summary>A failure here only hides the home column: it must not fail the scan.</summary>
+    private async Task LoadHomesAsync(AdbEndpoint ep)
+    {
+        try
+        {
+            var (apps, current) = await new HomeManager(_adb).ListAsync(ep);
+            _homePackages = apps.Select(a => a.Package).ToHashSet(StringComparer.Ordinal);
+            _currentHome = current?.Package;
+        }
+        catch (Exception ex)
+        {
+            _homePackages = [];
+            _currentHome = null;
+            Log($"Home non leggibile: {ex.Message}");
+        }
+    }
+
+    private string HomeLabel(string package) =>
+        package == _currentHome ? "Attiva" : _homePackages.Contains(package) ? "Disponibile" : "";
+
+    private PackageRow ToRow(PackageInfo p) => PackageRow.From(p, HomeLabel(p.Name));
+
+    private async void OnSetHome(object sender, RoutedEventArgs e)
+    {
+        if (_connected is null || PackageGrid.SelectedItems.Count != 1 ||
+            PackageGrid.SelectedItem is not PackageRow { CanBeHome: true } row) return;
+        if (row.Name == _currentHome) { Log($"{row.Name} è già la home."); return; }
+
+        SetBusy(true);
+        try
+        {
+            ShowOp($"Imposto {row.Name} come home", null);
+            var r = await new HomeManager(_adb).SetAsync(_connected, row.Name);
+            Log(r.Success ? $"OK  {r.Message}" : $"ERRORE  {r.Message}");
+            await LoadHomesAsync(_connected);
+            ApplyFilter();
+        }
+        catch (Exception ex) { Log($"Operazione fallita: {ex.Message}"); }
+        finally { SetBusy(false); }
+    }
+
+    private void UpdateSetHomeButton() =>
+        SetHomeBtn.IsEnabled = !_busy && _connected is not null && PackageGrid.SelectedItems.Count == 1 &&
+                               PackageGrid.SelectedItem is PackageRow { CanBeHome: true } row && row.Name != _currentHome;
 
     private PackageRemover NewRemover() => new(_adb, new PackageScanner(_adb), _backups);
 
@@ -206,6 +256,7 @@ public partial class MainWindow : Window
     {
         var n = PackageGrid.SelectedItems.Count;
         SelectionText.Text = n == 0 ? "" : n == 1 ? "1 selezionata" : $"{n} selezionate";
+        UpdateSetHomeButton();
     }
 
     private void ApplyFilter()
@@ -218,8 +269,8 @@ public partial class MainWindow : Window
             .Where(p => text.Length == 0 || p.Name.Contains(text, StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (_sortKey is { } key) view = PackageSorter.Sort(view, key, _sortDesc);
-        _systemRows = view.Where(p => p.Origin == PackageOrigin.System).Select(PackageRow.From).ToList();
-        _thirdPartyRows = view.Where(p => p.Origin == PackageOrigin.ThirdParty).Select(PackageRow.From).ToList();
+        _systemRows = view.Where(p => p.Origin == PackageOrigin.System).Select(ToRow).ToList();
+        _thirdPartyRows = view.Where(p => p.Origin == PackageOrigin.ThirdParty).Select(ToRow).ToList();
         SystemRadio.Content = $"Sistema  {_systemRows.Count}";
         ThirdPartyRadio.Content = $"Terze parti  {_thirdPartyRows.Count}";
         ShowCurrentRows();
@@ -526,6 +577,6 @@ public partial class MainWindow : Window
         RemoveBtn.IsEnabled = ready;
         RestoreBtn.IsEnabled = ready;
         InstallBtn.IsEnabled = ready;
-        if (PackageGrid is not null) RefreshEmptyHint();
+        if (PackageGrid is not null) { UpdateSetHomeButton(); RefreshEmptyHint(); }
     }
 }
