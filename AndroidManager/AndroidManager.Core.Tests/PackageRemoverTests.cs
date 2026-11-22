@@ -133,6 +133,20 @@ public class PackageRemoverTests : IDisposable
     }
 
     [Fact]
+    public async Task Execute_removes_third_party_fully_without_keep_flag()
+    {
+        // -k on a user-installed app leaves a ghost package record whose signature blocks a later sideload.
+        var adb = Device();
+        var r = Remover(adb);
+        var plan = await r.PlanAsync(FakeAdb.Ep(), RemovalMode.Uninstall, new[] { "com.netflix.mediaclient" });
+        var run = await r.ExecuteAsync(FakeAdb.Ep(), plan);
+
+        Assert.True(Assert.Single(run.Results).Success);
+        Assert.Contains("pm uninstall --user 0 com.netflix.mediaclient", adb.Commands);
+        Assert.DoesNotContain("pm uninstall -k --user 0 com.netflix.mediaclient", adb.Commands);
+    }
+
+    [Fact]
     public async Task Execute_falls_back_without_keep_flag_and_reports_failure()
     {
         var adb = Device(c => c.StartsWith("pm uninstall -k") ? "Failure [DELETE_FAILED_INTERNAL_ERROR]"
