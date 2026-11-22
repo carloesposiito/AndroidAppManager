@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <Content Include="AndroidManager_Icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AndroidManager.Core\AndroidManager.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- scrcpy release shipped inside the exe; unpacked on first use when no scrcpy is found. -->
+    <EmbeddedResource Include="Resources\scrcpy-win64-v3.3.4.zip" LogicalName="scrcpy.zip" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>AndroidManager</AssemblyName>
+    <Product>AndroidManager</Product>
+    <ApplicationIcon>AndroidManager_Icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+</Project>
