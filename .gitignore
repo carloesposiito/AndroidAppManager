@@ -51,5 +51,4 @@ appsettings.Local.json
 # Keep them locally in Extra/APK; only the tiny launcher APK is tracked.
 # Tests that need an absent fixture fail with "Fixture mancante".
 Extra/APK/*
-!Extra/APK/xbmc-launcher-3-4-3.apk
-!Extra/APK/.gitkeep
+Extra/Build/*
