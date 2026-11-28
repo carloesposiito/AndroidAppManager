@@ -1,4 +1,4 @@
-# AndroidManager
+# Android Manager
 
 [🇮🇹 Italiano](README.it.md) · 🇬🇧 English
 
